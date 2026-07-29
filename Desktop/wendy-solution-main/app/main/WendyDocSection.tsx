@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export type DocCategory = '제안' | '웬디 사무' | '전략 문서' | '방송 관련' | '기타 공유';
 
@@ -56,6 +56,13 @@ export default function WendyDocSection({
     imageUrl: ''
   });
 
+  // 🚀 [핵심 추가] '웬디 현황' 탭 클릭 등으로 isWritingMode가 false가 되면 활성 문서 초기화
+  useEffect(() => {
+    if (!isWritingMode) {
+      setActiveScheduleDoc(null);
+    }
+  }, [isWritingMode]);
+
   // 카테고리별 + 버튼을 눌러 신규 글쓰기 진입
   const handleAddNewDocWithCategory = (category: DocCategory) => {
     setActiveScheduleDoc(null);
@@ -82,7 +89,7 @@ export default function WendyDocSection({
     setIsWritingMode(true);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isWritingMode && !activeDoc && !formData.title) {
       setFormData(prev => ({
         ...prev,
@@ -130,7 +137,7 @@ export default function WendyDocSection({
   return (
     <div className="w-full h-full bg-[#F5F6F8] overflow-y-auto select-text font-['Paperlogy']">
       
-      {/* ------------------ VIEW 1: 카테고리별 공유 문서 목록 ------------------ */}
+      {/* ------------------ VIEW 1: 카테고리별 공유 문서 목록 (현황 페이지) ------------------ */}
       {!isWritingMode && (
         <div className="pt-[36px] px-[30px] pb-24 w-full flex flex-col items-stretch box-border bg-white min-h-full">
           
@@ -211,7 +218,7 @@ export default function WendyDocSection({
         </div>
       )}
 
-      {/* ------------------ VIEW 2: 블로그 에디터 ------------------ */}
+      {/* ------------------ VIEW 2: 블로그 에디터 (작성 페이지) ------------------ */}
       {isWritingMode && (
         <div className="w-full min-h-full flex flex-col items-center pb-20 px-4 sm:px-8">
           
@@ -222,7 +229,7 @@ export default function WendyDocSection({
                 onClick={handleBackToList}
                 className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-xs font-bold transition cursor-pointer border border-neutral-300 flex-shrink-0"
               >
-                ← 목록으로
+                ← 현황 목록으로
               </button>
 
               <div className="h-5 w-[1px] bg-neutral-200 flex-shrink-0" />
@@ -288,7 +295,6 @@ export default function WendyDocSection({
 
           <div className="w-full max-w-full lg:max-w-[95%] xl:max-w-[1200px] bg-white border border-neutral-200 rounded-2xl shadow-sm mt-6 mb-12 p-6 md:p-10 min-h-[750px] flex flex-col justify-start transition-all">
             
-            {/* 💡 작성자 수동 입력 대신 로그인 사용자 "이름 + 직군" 자동 표시 */}
             <div className="flex justify-between items-center border-b border-neutral-100 pb-4 mb-6">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -343,7 +349,7 @@ export default function WendyDocSection({
 
             <textarea
               rows={22}
-              placeholder="네이버 블로그처럼 매뉴얼, 비상 연락망, 접속 정보, 안내 사항을 자유롭게 작성해 보세요..."
+              placeholder="매뉴얼, 비상 연락망, 접속 정보, 안내 사항을 자유롭게 작성해 보세요..."
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               className="w-full flex-1 text-sm text-neutral-800 focus:outline-none leading-relaxed font-normal placeholder-neutral-300 resize-none min-h-[450px]"

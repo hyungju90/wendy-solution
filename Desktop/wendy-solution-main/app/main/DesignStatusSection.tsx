@@ -32,16 +32,23 @@ export default function DesignStatusSection({
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
-  // DB에서 넘어온 스케줄을 날짜/시간 순서대로 정렬
+  // 🚀 DB에서 넘어온 스케줄을 날짜 및 시작 시간 순서대로 정렬
   const displayList = [...filteredSchedules].sort((a, b) => {
-    const dateA = new Date(`${a.broadcast_date}T${a.start_time || '00:00'}`);
-    const dateB = new Date(`${b.broadcast_date}T${b.start_time || '00:00'}`);
-    return dateA.getTime() - dateB.getTime();
+    const dateA = String(a.broadcast_date || '');
+    const dateB = String(b.broadcast_date || '');
+
+    if (dateA !== dateB) {
+      return dateA.localeCompare(dateB);
+    }
+
+    const timeA = String(a.start_time || '00:00');
+    const timeB = String(b.start_time || '00:00');
+    return timeA.localeCompare(timeB);
   });
 
   return (
     <div className="p-8 w-full h-full overflow-y-auto bg-white font-sans text-xs">
-      {/* 1. 통일된 타이틀 (서브텍스트 삭제) */}
+      {/* 1. 통일된 타이틀 */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <h1 className="text-xl font-medium text-neutral-900">디자인 현황</h1>
       </div>
@@ -89,7 +96,7 @@ export default function DesignStatusSection({
                 <th className="px-3 border-r border-neutral-100 w-24">플랫폼</th>
                 <th className="px-4 border-r border-neutral-100 text-left min-w-[200px]">품목</th>
                 <th className="px-3 border-r border-neutral-100 w-28 bg-blue-50/50 text-blue-900">
-                  CG-WIP (담당)
+                  CG-WIP
                 </th>
                 <th className="px-3 border-r border-neutral-100 w-24">배너</th>
                 <th className="px-3 border-r border-neutral-100 w-24">예고페이지</th>
@@ -116,11 +123,12 @@ export default function DesignStatusSection({
                         {timeStr}
                       </td>
                       {/* 플랫폼 */}
+                      {/* 플랫폼 */}
                       <td className="px-2 border-r border-neutral-100">
                         <div className="flex justify-center items-center">
                           <span
                             className={`w-20 h-6 flex items-center justify-center rounded-md font-semibold text-[11px] truncate ${getRowBgClass(
-                              row.row_color || row.platform
+                              row
                             )}`}
                           >
                             {row.platform || '-'}
@@ -131,9 +139,10 @@ export default function DesignStatusSection({
                       <td className="px-4 border-r border-neutral-100 text-left font-bold text-neutral-800 truncate max-w-[220px]">
                         {row.broadcast_title || '-'}
                       </td>
-                      {/* CG-WIP 담당자 이름 */}
+                      
+                      {/* 🚀 [수정됨] PD 폴백(|| row.pd_in_charge)을 삭제하여 CG-WIP 데이터만 정확하게 출력 */}
                       <td className="px-2 border-r border-neutral-100 bg-blue-50/20 font-bold text-blue-700">
-                        {row.cg || row.pd_in_charge || '-'}
+                        {row.cg || '-'}
                       </td>
 
                       {/* 디자인 6종 상태 토글 버튼 */}

@@ -9,7 +9,9 @@ import ScheduleSection from './ScheduleSection';
 import CalendarSection from './CalendarSection'; 
 import CueSheetSection from './CueSheetSection';
 import CueSheetListSection from './CueSheetListSection'; 
+import { CueSheetEditorSection } from './CueSheetEditorSection';
 import DesignStatusSection from './DesignStatusSection';
+import AddScheduleModal from './AddScheduleModal';
 import WendyDocSection, { type WendyDoc, type DocCategory } from './WendyDocSection';
 
 const supabaseUrl = 'https://jrinzjtffkngxmkdoyjc.supabase.co';
@@ -17,12 +19,35 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function MainChatPage() {
-  type TabType = 'chat' | 'schedule' | 'calendar' | 'cgBoard' | 'wendyStatus' | 'cueSheet' | 'cueSheetList';
+  type TabType = 'chat' | 'schedule' | 'calendar' | 'cgBoard' | 'wendyStatus' | 'cueSheet' | 'cueSheetList' | 'cueSheetEditor';
   
   const [currentTab, setCurrentTabState] = useState<TabType>('schedule');
+  const [selectedCueSheetSchedule, setSelectedCueSheetSchedule] = useState<any>(null);
 
+  // 🚀 선택 연도 / 월 상태 (오늘 시점 기준 자동 초기화)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+
+  // 🚀 웬디 현황 (공유 문서) DB 데이터 수용 상태
+  const [wendyDocs, setWendyDocs] = useState<WendyDoc[]>([]);
+  const [isWritingDocMode, setIsWritingDocMode] = useState<boolean>(false);
+
+  // 🚀 탭 변경 함수 (스케줄 관련 탭 클릭 시 무조건 현재 시간/월 기준 자동 이동)
   const setCurrentTab = (tab: TabType) => {
+    // 1. 웬디 현황 탭 이동 시 글 작성 모드 종료
+    if (tab === 'wendyStatus') {
+      setIsWritingDocMode(false);
+    }
+
+    // 2. 방송 일정 및 제작 탭 클릭 시 항상 '오늘 날짜'의 연도/월로 자동 세팅
+    if (tab === 'schedule' || tab === 'calendar' || tab === 'cueSheet' || tab === 'cgBoard') {
+      const today = new Date();
+      setSelectedYear(today.getFullYear());
+      setSelectedMonth(today.getMonth() + 1);
+    }
+
     setCurrentTabState(tab);
+
     if (typeof window !== 'undefined') {
       localStorage.setItem('wendy_current_tab', tab);
       const url = new URL(window.location.href);
@@ -37,7 +62,7 @@ export default function MainChatPage() {
       const paramTab = urlParams.get('tab') as TabType;
       const savedTab = localStorage.getItem('wendy_current_tab') as TabType;
 
-      const validTabs: TabType[] = ['chat', 'schedule', 'calendar', 'cgBoard', 'wendyStatus', 'cueSheet', 'cueSheetList'];
+      const validTabs: TabType[] = ['chat', 'schedule', 'calendar', 'cgBoard', 'wendyStatus', 'cueSheet', 'cueSheetList', 'cueSheetEditor'];
       
       if (paramTab && validTabs.includes(paramTab)) {
         setCurrentTabState(paramTab);
@@ -46,9 +71,6 @@ export default function MainChatPage() {
       }
     }
   }, []);
-
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
 
   const [channels, setChannels] = useState<string[]>(['일반 (general)', '공지사항', '프로젝트-웬디솔루션', '디자인팀']);
   const [colleagues, setColleagues] = useState<any[]>([]);
@@ -60,7 +82,6 @@ export default function MainChatPage() {
   const [unreadCounts, setUnreadCounts] = useState<{ [roomName: string]: number }>({});
   const [viewedReplyCounts, setViewedReplyCounts] = useState<{ [messageId: number]: number }>({});
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
-  
   const [isCreateChannelModalOpen, setIsCreateChannelModalOpen] = useState(false);
 
   const [myProfileData, setMyProfileData] = useState({ id: '', name: '이형주', role: 'PD', email: '' });
@@ -71,14 +92,6 @@ export default function MainChatPage() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string | number>('');
 
-  const [wendyDocs, setWendyDocs] = useState<WendyDoc[]>([
-    { id: '1', title: '네이버 쇼핑라이브 어드민 운영', author: '박승호 TD', category: '방송 관련', content: '네이버 커머스 어드민 계정 매뉴얼 및 방송 예약 가이드.', createdAt: '2026-07-21' },
-    { id: '2', title: 'Sauce Live 운영 (G-Live, 삼성닷컴)', author: '박승호 TD', category: '방송 관련', content: 'Sauce Live 어드민 매뉴얼 및 G-Live 연결 방법.', createdAt: '2026-07-21' },
-    { id: '3', title: '웬디 로그인 관련 정보', author: '박승호 TD', category: '방송 관련', content: '사내 공용 계정 패스워드 및 보안 수칙.', createdAt: '2026-07-21' }
-  ]);
-  const [isWritingDocMode, setIsWritingDocMode] = useState<boolean>(false);
-
-  // 방송 신규 등록 폼 초기값
   const initialFormData = {
     broadcast_date: '2026-07-20', start_time: '11:00', end_time: '12:00', duration_minutes: 60,
     platform: '네이버', client_name: '', broadcast_title: '', studio: '', row_color: 'blue',
@@ -88,7 +101,7 @@ export default function MainChatPage() {
   };
   const [formData, setFormData] = useState(initialFormData);
 
-  // Supabase DB에서 스케줄 불러오기
+  // 🚀 Supabase 스케줄 조회
   const fetchSchedules = async () => {
     try {
       const { data, error } = await supabase
@@ -104,20 +117,45 @@ export default function MainChatPage() {
     }
   };
 
+  // 🚀 Supabase 웬디 현황(공유 문서) 조회
+  const fetchWendyDocs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('wendy_docs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const formattedDocs = data.map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          author: d.author,
+          category: d.category,
+          content: d.content,
+          imageUrl: d.image_url,
+          createdAt: new Date(d.created_at).toISOString().slice(0, 10),
+        }));
+        setWendyDocs(formattedDocs);
+      }
+    } catch (e) {
+      console.error('문서 DB 조회 오류:', e);
+    }
+  };
+
   useEffect(() => {
     fetchSchedules();
     fetchChatMessages();
     fetchCompanyMembers();
+    fetchWendyDocs();
 
-    // 3초마다 DB 실시간 동기화 (다른 PC에서 수정한 내역 자동 반영)
     const interval = setInterval(() => { 
       fetchSchedules(); 
       fetchChatMessages(); 
+      fetchWendyDocs();
     }, 3000);
     return () => clearInterval(interval);
   }, [activeRoom]);
 
-  // 테이블 더블클릭 수정 관련
   const handleCellDoubleClick = (id: string, field: string, value: any) => { 
     setEditingCell({ id, field }); 
     setEditValue(value ?? ''); 
@@ -128,7 +166,6 @@ export default function MainChatPage() {
     if (field === 'duration_minutes' || field === 'camera_count') targetValue = Number(editValue);
     const updatePayload: any = { [field]: targetValue };
     
-    // DB 업데이트
     await supabase.from('broadcast_schedules').update(updatePayload).eq('id', id);
     fetchSchedules();
     setEditingCell(null);
@@ -174,32 +211,6 @@ export default function MainChatPage() {
     );
   };
 
-  // 모달을 통한 방송 직접 등록 기능
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.broadcast_title) return alert('방송명(품목)은 필수 입력 사항입니다!');
-    
-    const insertData = {
-      ...formData,
-      cg_banner: '대기', 
-      cg_price: '대기', 
-      cg_normal: '대기', 
-      cg_half: '대기', 
-      cg_stamp: '대기', 
-      cg_preview: '대기', 
-      cg_mediawall: '대기'
-    };
-
-    const { error } = await supabase.from('broadcast_schedules').insert([insertData]);
-    if (error) {
-      alert('방송 등록 실패: ' + error.message);
-    } else {
-      alert('새 방송 스케줄이 성공적으로 등록되었습니다!');
-      handleCloseModal(); 
-      fetchSchedules(); 
-    }
-  };
-
   const handleToggleEventStatus = async (id: string, currentVal: string) => {
     const nextVal = currentVal === '유' ? '무' : '유';
     await supabase.from('broadcast_schedules').update({ manager: nextVal }).eq('id', id); 
@@ -217,22 +228,38 @@ export default function MainChatPage() {
 
   const handleStartCreateDoc = () => { setIsWritingDocMode(true); };
 
-  const handleSaveDoc = (docData: { id?: string; title: string; author: string; category: DocCategory; content: string; imageUrl: string }) => {
+  // 🚀 Supabase 웬디 현황 문서 저장 (Insert / Update)
+  const handleSaveDoc = async (docData: { id?: string; title: string; author: string; category: DocCategory; content: string; imageUrl: string }) => {
     if (docData.id) {
-      setWendyDocs(wendyDocs.map(d => d.id === docData.id ? { ...d, ...docData } : d));
+      await supabase.from('wendy_docs').update({
+        title: docData.title,
+        author: docData.author,
+        category: docData.category,
+        content: docData.content,
+        image_url: docData.imageUrl,
+      }).eq('id', docData.id);
     } else {
-      const newDoc: WendyDoc = {
-        id: Date.now().toString(), title: docData.title, author: docData.author, category: docData.category, content: docData.content, imageUrl: docData.imageUrl, createdAt: new Date().toISOString().slice(0, 10)
-      };
-      setWendyDocs([newDoc, ...wendyDocs]);
+      await supabase.from('wendy_docs').insert([{
+        title: docData.title,
+        author: docData.author,
+        category: docData.category,
+        content: docData.content,
+        image_url: docData.imageUrl,
+      }]);
+    }
+    fetchWendyDocs();
+  };
+
+  // 🚀 Supabase 웬디 현황 문서 삭제 (Delete)
+  const handleDeleteDoc = async (id: string) => {
+    if (confirm('이 문서를 정말 삭제하시겠습니까?')) {
+      await supabase.from('wendy_docs').delete().eq('id', id);
+      fetchWendyDocs();
     }
   };
 
-  const handleDeleteDoc = (id: string) => { setWendyDocs(wendyDocs.filter(d => d.id !== id)); };
-
   const activeThreadMessage = (messages || []).find(m => m.id === activeThreadMessageId) || null;
 
-  // 선택된 년/월로 스케줄 필터링
   const filteredSchedules = (schedules || []).filter((item: any) => {
     if (!item?.broadcast_date) return false;
     const parts = String(item.broadcast_date).split('-'); 
@@ -242,22 +269,51 @@ export default function MainChatPage() {
     return itemYear === selectedYear && itemMonth === selectedMonth;
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'duration_minutes' || name === 'camera_count' ? Number(value) : value
-    }));
-  };
+  // 🚀 방송명 / 플랫폼 / 의뢰주체 정밀 색상 판별 함수
+  const getRowBgClass = (rowOrColorKey: any) => {
+    if (!rowOrColorKey) return 'bg-[#E2EEF9] text-[#113a6b] border-blue-200 font-bold';
 
-  const getRowBgClass = (colorKey: string) => {
-    if (colorKey === 'green' || colorKey === 'G마켓') return 'bg-[#E2F0D9] text-[#244b11]'; 
-    if (colorKey === 'navy' || colorKey === '핫잇슈') return 'bg-[#D9E1F2] text-[#1f3864]';  
-    if (colorKey === 'yellow' || colorKey === '맘편한육아') return 'bg-[#FFF5CE] text-[#634f05]'; 
-    if (colorKey === 'blue' || colorKey === '네이버') return 'bg-[#E2EEF9] text-[#113a6b]';   
-    if (colorKey === 'purple' || colorKey === '쿠팡') return 'bg-[#F2E6FF] text-[#4a157d]'; 
-    if (colorKey === 'pink' || colorKey === '11번가') return 'bg-[#FFF0F5] text-[#78184a]';   
-    return 'bg-white text-gray-900';
+    let platform = '';
+    let client = '';
+    let title = '';
+
+    if (typeof rowOrColorKey === 'object') {
+      platform = String(rowOrColorKey.platform || '').toLowerCase();
+      client = String(rowOrColorKey.client_name || rowOrColorKey.client || '').toLowerCase();
+      title = String(rowOrColorKey.broadcast_title || '').toLowerCase();
+    } else {
+      title = String(rowOrColorKey).toLowerCase();
+    }
+
+    const fullText = `${platform} ${client} ${title}`;
+
+    // 1. 맘편한육아 ➔ 노란색 (Yellow)
+    if (fullText.includes('맘편한') || fullText.includes('맘육')) {
+      return 'bg-[#FFF5CE] text-[#634f05] border-amber-300 font-bold';
+    }
+
+    // 2. G마켓 / 지마켓 ➔ 연두/초록색 (Green)
+    if (fullText.includes('g마켓') || fullText.includes('지마켓')) {
+      return 'bg-[#E2F0D9] text-[#244b11] border-emerald-300 font-bold';
+    }
+
+    // 3. 핫IT슈 / 핫잇슈 ➔ 네이비/인디고 (Navy)
+    if (fullText.includes('핫it슈') || fullText.includes('핫잇슈')) {
+      return 'bg-[#D9E1F2] text-[#1f3864] border-indigo-200 font-bold';
+    }
+
+    // 4. 틱톡 ➔ 연보라색 (Purple)
+    if (fullText.includes('틱톡') || fullText.includes('tiktok')) {
+      return 'bg-[#F2E6FF] text-[#4a157d] border-purple-300 font-bold';
+    }
+
+    // 5. 11번가 / 쿠팡 ➔ 분홍색 (Pink)
+    if (fullText.includes('11번가') || fullText.includes('쿠팡')) {
+      return 'bg-[#FFF0F5] text-[#78184a] border-pink-300 font-bold';
+    }
+
+    // 6. 기본 (네이버 등) ➔ 파란색 (Blue)
+    return 'bg-[#E2EEF9] text-[#113a6b] border-blue-200 font-bold';
   };
 
   const getCgBadgeStyle = (val: string) => {
@@ -325,11 +381,48 @@ export default function MainChatPage() {
 
   const exportToExcel = () => {
     if (!filteredSchedules || filteredSchedules.length === 0) return alert('내보낼 데이터가 없습니다.');
-    const headers = ['날짜', '시작 시간', '종료 시간', 'DUR(분)', '플랫폼', '의뢰 주체', '품목', '담당PD', 'TD', 'CUT', 'CG-WIP'];
+
+    // 🚀 A열(날짜)부터 AC열(숏클립)까지 전체 헤더 설정
+    const headers = [
+      '날짜', '시작 시간', '종료 시간', 'DUR(분)', '플랫폼', '의뢰 주체', '품목',
+      '스튜디오', '출연자(삼성)', '출연자', '출연자(외부)', '담당PD', '서포트', 'TD',
+      'CUT', 'CG - WIP', '구매인증', 'VMD', '카메라 1', '카메라 2', '카메라 대수',
+      '카메라 요청', '장비 대여', '담당자', '경품 지급', '작가', '푸드', '유입광고', '숏클립'
+    ];
+
+    // 🚀 각 행별 데이터 매핑 (숏클립 포함 29개 컬럼)
     const rowsData = filteredSchedules.map((row) => [
-      row.broadcast_date || '', row.start_time ? String(row.start_time).slice(0, 5) : '', row.end_time ? String(row.end_time).slice(0, 5) : '', row.duration_minutes || 0,
-      row.platform || '', row.client_name || '', row.broadcast_title || '', row.pd_in_charge || '', row.td || '', row.cut || '', row.cg || ''
+      row.broadcast_date || '',
+      row.start_time ? String(row.start_time).slice(0, 5) : '',
+      row.end_time ? String(row.end_time).slice(0, 5) : '',
+      row.duration_minutes || 0,
+      row.platform || '',
+      row.client_name || '',
+      row.broadcast_title || '',
+      row.studio || '',
+      row.cast_1 || '',
+      row.cast_2 || '',
+      row.cast_3 || '',
+      row.pd_in_charge || '',
+      row.manager || '',
+      row.td || '',
+      row.cut || '',
+      row.cg || '',
+      row.purchase_auth || '',
+      row.vmd || '',
+      row.camera_1 || '',
+      row.camera_2 || '',
+      row.camera_count || 0,
+      row.camera_request || '',
+      row.equipment_rental || '',
+      row.manager || '',
+      row.gift_payout || '',
+      row.writer || '',
+      row.food || '',
+      row.ad_inflow || '',
+      row.short_clip || ''
     ]);
+
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rowsData]);
     const workbook = XLSX.utils.book_new(); 
     XLSX.utils.book_append_sheet(workbook, worksheet, '방송편성표');
@@ -394,31 +487,28 @@ export default function MainChatPage() {
               <div className="justify-start text-black text-[10px] font-light px-1">
                 {group.category}
               </div>
-             {group.items.map((item) => {
-  const isActive = currentTab === item.id;
-  return (
-    <button
-      key={item.id}
-      type="button"
-      onClick={() => setCurrentTab(item.id as TabType)}
-      className={`self-stretch h-7 px-2.5 rounded-[5px] inline-flex justify-start items-center gap-2.5 transition cursor-pointer ${
-        isActive ? 'bg-zinc-100' : 'hover:bg-zinc-50'
-      }`}
-    >
-      {/* 활성화 상태 인디케이터 사각형만 남김 */}
-      <div className={`w-3.5 h-3.5 rounded-[2px] flex-shrink-0 transition-colors ${
-        isActive ? 'bg-violet-500 shadow-xs' : 'bg-zinc-300'
-      }`} />
-      
-      {/* 메뉴 이름 */}
-      <div className={`justify-start text-sm font-['Paperlogy'] ${
-        isActive ? 'text-black font-semibold' : 'text-black font-normal'
-      }`}>
-        {item.name}
-      </div>
-    </button>
-  );
-})}
+              {group.items.map((item) => {
+                const isActive = currentTab === item.id || (item.id === 'cueSheet' && currentTab === 'cueSheetEditor');
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCurrentTab(item.id as TabType)}
+                    className={`self-stretch h-7 px-2.5 rounded-[5px] inline-flex justify-start items-center gap-2.5 transition cursor-pointer ${
+                      isActive ? 'bg-zinc-100' : 'hover:bg-zinc-50'
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded-[2px] flex-shrink-0 transition-colors ${
+                      isActive ? 'bg-violet-500 shadow-xs' : 'bg-zinc-300'
+                    }`} />
+                    <div className={`justify-start text-sm font-['Paperlogy'] ${
+                      isActive ? 'text-black font-semibold' : 'text-black font-normal'
+                    }`}>
+                      {item.name}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -448,7 +538,6 @@ export default function MainChatPage() {
           <ScheduleSection currentTab={currentTab} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} filteredSchedules={filteredSchedules} schedules={schedules} getRowBgClass={getRowBgClass} getCgBadgeStyle={getCgBadgeStyle} renderEditableCell={renderEditableCell} handleToggleEventStatus={handleToggleEventStatus} handleDeleteSchedule={handleDeleteSchedule} handleToggleCgItem={handleToggleCgItem} handleExcelUpload={handleExcelUpload} exportToExcel={exportToExcel} handleOpenModal={handleOpenModal}/>
         )}
 
-        {/* 🎨 디자인 현황 (Supabase DB 전용) */}
         {currentTab === 'cgBoard' && (
           <DesignStatusSection 
             selectedMonth={selectedMonth} 
@@ -465,7 +554,24 @@ export default function MainChatPage() {
         )}
 
         {currentTab === 'cueSheet' && (
-          <CueSheetSection schedules={schedules} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear}/>
+          <CueSheetSection 
+            schedules={schedules} 
+            selectedMonth={selectedMonth} 
+            setSelectedMonth={setSelectedMonth} 
+            selectedYear={selectedYear}
+            getRowBgClass={getRowBgClass}
+            onNavigate={(schedule) => {
+              setSelectedCueSheetSchedule(schedule);
+              setCurrentTab('cueSheetEditor');
+            }}
+          />
+        )}
+
+        {currentTab === 'cueSheetEditor' && (
+          <CueSheetEditorSection 
+            selectedSchedule={selectedCueSheetSchedule}
+            onBack={() => setCurrentTab('cueSheet')} 
+          />
         )}
 
         {currentTab === 'cueSheetList' && (
@@ -477,81 +583,27 @@ export default function MainChatPage() {
         )}
       </div>
 
-      {/* 방송 등록 모달 */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[16px] w-[460px] h-[660px] shadow-2xl flex flex-col overflow-hidden text-left animate-fade-in font-['Paperlogy']">
-            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-white flex-shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">방송 신규 등록</h3>
-              <button type="button" onClick={handleCloseModal} className="text-gray-400 hover:text-gray-700 text-2xl leading-none cursor-pointer">✕</button>
-            </div>
-            <div className="flex border-b border-gray-100 text-[13px] font-medium text-gray-500 bg-gray-50/50 flex-shrink-0">
-              <button type="button" onClick={() => setModalTab('basic')} className={`flex-1 py-3.5 text-center transition border-r border-gray-100 ${modalTab === 'basic' ? 'bg-white text-gray-900 font-bold border-b-2 border-b-transparent' : 'border-b border-gray-100 hover:bg-gray-100 cursor-pointer'}`}>1. 기본정보</button>
-              <button type="button" onClick={() => setModalTab('tech')} className={`flex-1 py-3.5 text-center transition border-r border-gray-100 ${modalTab === 'tech' ? 'bg-white text-gray-900 font-bold border-b-2 border-b-transparent' : 'border-b border-gray-100 hover:bg-gray-100 cursor-pointer'}`}>2. 기술 스텝</button>
-              <button type="button" onClick={() => setModalTab('etc')} className={`flex-1 py-3.5 text-center transition ${modalTab === 'etc' ? 'bg-white text-gray-900 font-bold border-b-2 border-b-transparent' : 'border-b border-gray-100 hover:bg-gray-100 cursor-pointer'}`}>3. 기타</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 text-gray-900 text-sm no-scrollbar">
-              {modalTab === 'basic' && (
-                <div className="flex flex-col gap-5 animate-fade-in">
-                  <div>
-                    <label className="block text-[13px] font-medium text-gray-700 mb-1.5">품목 (방송명)</label>
-                    <input type="text" name="broadcast_title" required value={formData.broadcast_title} onChange={handleChange} placeholder="삼성 갤럭시 Z플립6" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/>
-                  </div>
-                  <div>
-                    <label className="block text-[13px] font-medium text-gray-700 mb-1.5">플랫폼</label>
-                    <div className="grid grid-cols-3 gap-2.5">
-                      {[
-                        { name: '네이버', color: 'blue', bg: 'bg-[#EBF3FC] border-[#D2E3FC]' },
-                        { name: '핫잇슈', color: 'navy', bg: 'bg-[#EEF1FA] border-[#D9E2F8]' },
-                        { name: '맘편한육아', color: 'yellow', bg: 'bg-[#FFF8E1] border-[#FDECB1]' },
-                        { name: 'G마켓', color: 'green', bg: 'bg-[#EDF5EB] border-[#D5E9D0]' },
-                        { name: '쿠팡', color: 'purple', bg: 'bg-[#F6EEFA] border-[#E8D6F2]' },
-                        { name: '11번가', color: 'pink', bg: 'bg-[#FDF0F4] border-[#FAD6E2]' }
-                      ].map((btn) => (
-                        <button key={btn.name} type="button" onClick={() => setFormData(prev => ({ ...prev, platform: btn.name, row_color: btn.color }))} className={`h-11 border rounded-lg flex items-center justify-center text-[13px] transition cursor-pointer ${btn.bg} ${formData.platform === btn.name ? 'ring-[1.5px] ring-blue-500 font-bold border-transparent text-gray-900 shadow-xs' : 'text-gray-600 hover:opacity-80'}`}>
-                          {btn.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">방송 날짜</label><input type="date" name="broadcast_date" value={formData.broadcast_date} onChange={handleChange} className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px]"/></div>
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">시작 시간</label><input type="time" name="start_time" value={formData.start_time} onChange={handleChange} className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px]"/></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">담당 PD</label><input type="text" name="pd_in_charge" value={formData.pd_in_charge} onChange={handleChange} placeholder="이형주" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">CG-WIP 담당</label><input type="text" name="cg" value={formData.cg} onChange={handleChange} placeholder="박승호" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                  </div>
-                </div>
-              )}
-              {modalTab === 'tech' && (
-                <div className="flex flex-col gap-5 animate-fade-in">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">TD</label><input type="text" name="td" value={formData.td} onChange={handleChange} placeholder="박승호" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">CUT</label><input type="text" name="cut" value={formData.cut} onChange={handleChange} placeholder="강정진" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">카메라 1</label><input type="text" name="camera_1" value={formData.camera_1} onChange={handleChange} placeholder="카메라 1" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">카메라 2</label><input type="text" name="camera_2" value={formData.camera_2} onChange={handleChange} placeholder="카메라 2" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                  </div>
-                </div>
-              )}
-              {modalTab === 'etc' && (
-                <div className="flex flex-col gap-5 animate-fade-in">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">스튜디오</label><input type="text" name="studio" value={formData.studio} onChange={handleChange} placeholder="A스튜디오" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                    <div><label className="block text-[13px] font-medium text-gray-700 mb-1.5">의뢰 주체</label><input type="text" name="client_name" value={formData.client_name} onChange={handleChange} placeholder="삼성전자" className="w-full h-11 px-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-[13px] placeholder:text-gray-400"/></div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end items-center flex-shrink-0 gap-2.5">
-              <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 border border-gray-200 rounded-lg text-[13px] font-medium bg-white text-gray-700 hover:bg-gray-100 transition cursor-pointer">취소</button>
-              <button type="submit" onClick={handleSubmit} className="px-6 py-2.5 bg-[#1A73E8] hover:bg-blue-700 text-white text-[13px] font-medium rounded-lg transition shadow-xs cursor-pointer">스케줄 DB 저장</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🚀 방송 스케줄 등록 모달 (데이터 정제 및 예외 처리 보완) */}
+      <AddScheduleModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={async (scheduleData) => {
+          const cleanedData = { ...scheduleData };
+          if (!cleanedData.id) delete cleanedData.id;
+          cleanedData.duration_minutes = Number(cleanedData.duration_minutes) || 60;
+          cleanedData.camera_count = Number(cleanedData.camera_count) || 0;
+
+          const { error } = await supabase.from('broadcast_schedules').insert([cleanedData]);
+          if (error) {
+            console.error('스케줄 저장 실패:', error);
+            alert(`저장에 실패했습니다: ${error.message || '입력 데이터를 확인해 주세요.'}`);
+          } else {
+            fetchSchedules();
+            setIsModalOpen(false);
+            alert('방송 스케줄이 성공적으로 등록되었습니다!');
+          }
+        }}
+      />
     </div>
   );
 }
