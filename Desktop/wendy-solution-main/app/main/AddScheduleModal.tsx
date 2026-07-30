@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 
 // InputField를 메인 컴포넌트 밖으로 분리하여 타이핑 시 포커스가 풀리는 현상 방지
-const InputField = ({ label, name, value, onChange, placeholder, type = "text" }: any) => (
+const InputField = ({ label, name, value, onChange, placeholder, type = "text", disabled = false }: any) => (
   <div className="flex flex-col">
     <label className="text-[13px] text-neutral-700 mb-2">{label}</label>
     <input 
@@ -11,8 +11,9 @@ const InputField = ({ label, name, value, onChange, placeholder, type = "text" }
       name={name} 
       value={value} 
       onChange={onChange} 
-      placeholder={placeholder} 
-      className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-lg text-[14px] text-neutral-900 outline-none focus:border-[#0064FF] transition placeholder:text-neutral-300" 
+      placeholder={placeholder}
+      disabled={disabled}
+      className={`w-full px-3.5 py-2.5 border border-neutral-200 rounded-lg text-[14px] text-neutral-900 outline-none focus:border-[#0064FF] transition placeholder:text-neutral-300 ${disabled ? 'bg-neutral-100 cursor-not-allowed text-neutral-500' : 'bg-white'}`} 
     />
   </div>
 );
@@ -35,14 +36,14 @@ export default function AddScheduleModal({ isOpen, onClose, onSave }: AddSchedul
     return `${year}-${month}-${day}`;
   };
 
-  // 기본 데이터 셋팅
+  // 🚀 1. 기본 데이터 셋팅 (DUR 기본값 60, 시작 11:00, 종료 12:00 세팅)
   const initialFormData = {
     broadcast_title: '',
     platform: '네이버',
     broadcast_date: getTodayDate(),
-    duration_minutes: '',
+    duration_minutes: '60',
     start_time: '11:00',
-    end_time: '',
+    end_time: '12:00',
     client_name: '',
     pd_in_charge: '',
     td: '',
@@ -71,6 +72,31 @@ export default function AddScheduleModal({ isOpen, onClose, onSave }: AddSchedul
       setActiveTab(1);
     }
   }, [isOpen]);
+
+  // 🚀 2. 시작 시간이나 DUR이 변경될 때 종료 시간을 자동 계산해주는 로직
+  useEffect(() => {
+    if (formData.start_time && formData.duration_minutes) {
+      const [hours, minutes] = formData.start_time.split(':').map(Number);
+      const duration = Number(formData.duration_minutes);
+
+      if (!isNaN(hours) && !isNaN(minutes) && !isNaN(duration)) {
+        // 총 분(minutes)으로 변환 후 계산
+        const totalMinutes = hours * 60 + minutes + duration;
+        
+        // 24시간을 넘어가면 다음날로 순환되게 처리 (ex. 25:00 -> 01:00)
+        const endHours = Math.floor(totalMinutes / 60) % 24;
+        const endMinutes = totalMinutes % 60;
+        
+        // HH:mm 포맷으로 변환 (09:05 형태)
+        const calculatedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+        
+        // 기존 상태와 다를 때만 업데이트 (무한루프 방지)
+        if (formData.end_time !== calculatedEndTime) {
+          setFormData(prev => ({ ...prev, end_time: calculatedEndTime }));
+        }
+      }
+    }
+  }, [formData.start_time, formData.duration_minutes]);
 
   if (!isOpen) return null;
 
@@ -160,9 +186,17 @@ export default function AddScheduleModal({ isOpen, onClose, onSave }: AddSchedul
                 <InputField label="운영시간 (DUR 분)" name="duration_minutes" value={formData.duration_minutes} onChange={handleChange} placeholder="60" type="number" />
               </div>
 
+              {/* 🚀 시작시간과 종료시간 */}
               <div className="grid grid-cols-2 gap-5">
                 <InputField label="시작 시간" name="start_time" value={formData.start_time} onChange={handleChange} type="time" />
-                <InputField label="종료 시간" name="end_time" value={formData.end_time} onChange={handleChange} type="time" />
+                <InputField 
+                  label="종료 시간 (자동계산)" 
+                  name="end_time" 
+                  value={formData.end_time} 
+                  onChange={handleChange} 
+                  type="time" 
+                  disabled={true} 
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-5">
@@ -172,7 +206,7 @@ export default function AddScheduleModal({ isOpen, onClose, onSave }: AddSchedul
             </div>
           )}
 
-          {/* 🚀 탭 2: 기술 스텝 (모든 입력 칸 가이드 문구를 "입력"으로 변경) */}
+          {/* 탭 2: 기술 스텝 */}
           {activeTab === 2 && (
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-5">
@@ -200,7 +234,7 @@ export default function AddScheduleModal({ isOpen, onClose, onSave }: AddSchedul
             </div>
           )}
 
-          {/* 🚀 탭 3: 기타 (모든 입력 칸 가이드 문구를 "입력"으로 변경) */}
+          {/* 탭 3: 기타 */}
           {activeTab === 3 && (
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-5">

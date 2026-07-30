@@ -54,21 +54,19 @@ export default function CalendarSection({
     return itemYear === selectedYear && itemMonth === selectedMonth;
   });
 
-  // 🚀 [수정됨] DB의 cast_1, cast_2, cast_3 컬럼을 정확히 타겟팅하여 합치는 함수
   const getCastDisplay = (schedule: any) => {
     if (!schedule) return '미지정';
 
-    // 컬럼명 직접 지정
     const candidates = [
       schedule.cast_1,
       schedule.cast_2,
       schedule.cast_3,
-      schedule.cast // 혹시 모를 기존 cast 컬럼 백업용
+      schedule.cast
     ];
 
     const validNames = candidates
       .filter((val) => val && typeof val === 'string' && val.trim() !== '' && val !== '미지정' && val !== 'null')
-      .flatMap((val) => val.split(/[,/]/)) // 만약 한 칸에 '홍길동, 김철수'로 들어있을 경우 대비 쪼개기
+      .flatMap((val) => val.split(/[,/]/))
       .map((name) => name.trim())
       .filter((name) => name !== '');
 
@@ -78,20 +76,23 @@ export default function CalendarSection({
   };
 
   return (
-    <div className="p-8 w-full h-full flex flex-col bg-white font-sans text-xs min-h-0 relative">
-      <div className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h1 className="text-xl font-medium text-neutral-900">{selectedYear}년 {selectedMonth}월 방송 캘린더</h1>
+    /* 🚀 1. 메인 단일 스크롤 컨테이너 */
+    <div className="p-8 pb-32 w-full h-full overflow-y-auto bg-white font-sans text-xs">
+      {/* 1. 타이틀 영역 */}
+      <div className="flex justify-between items-center mb-5 h-9 flex-shrink-0">
+        <h1 className="text-xl font-bold text-neutral-900">{selectedYear}년 {selectedMonth}월 방송 캘린더</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenModal}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
           >
             + 방송 등록
           </button>
         </div>
       </div>
 
-      <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 mb-6 flex justify-between items-center flex-shrink-0">
+      {/* 2. 공지사항 바 */}
+      <div className="w-full h-14 px-6 mb-6 bg-blue-50/60 border border-blue-100 rounded-xl flex justify-between items-center flex-shrink-0 select-none">
         <div className="flex items-center gap-3">
           <span className="text-blue-600 font-bold text-xs bg-blue-100 px-2.5 py-1 rounded">
             공지사항
@@ -105,6 +106,7 @@ export default function CalendarSection({
         </button>
       </div>
 
+      {/* 3. 월 선택 버튼 바 */}
       <div className="flex items-center gap-2 mb-6 flex-shrink-0">
         {months.map((m) => (
           <button
@@ -121,9 +123,11 @@ export default function CalendarSection({
         ))}
       </div>
 
-      <div className="flex-1 flex flex-col border border-neutral-200 rounded-xl bg-white shadow-sm overflow-hidden h-full">
+      {/* 4. 캘린더 메인 프레임 (내부 이중 스크롤 제거) */}
+      <div className="border border-neutral-200 rounded-xl bg-white shadow-sm overflow-hidden mb-12">
         
-        <div className="grid grid-cols-7 bg-white border-b border-neutral-200 flex-shrink-0 sticky top-0 z-10">
+        {/* 요일 헤더 (상단 고정) */}
+        <div className="grid grid-cols-7 bg-white border-b border-neutral-200 sticky top-0 z-10 shadow-2xs">
           {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
             <div 
               key={day} 
@@ -136,74 +140,77 @@ export default function CalendarSection({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-white no-scrollbar border-t border-neutral-200">
-          <div className="grid grid-cols-7 gap-[1px] bg-neutral-200 auto-rows-min border-b border-neutral-200">
-            
-            {prevMonthDates.map((day) => (
-              <div key={`prev-${day}`} className="bg-[#FAFAFA] p-2.5 flex flex-col min-h-[140px]">
-                <span className="font-bold text-[13px] text-neutral-400 mb-2">{day}일</span>
-              </div>
-            ))}
-            
-            {days.map((day) => {
-              const daySchedules = currentMonthSchedules.filter((item: any) => {
-                const parts = String(item.broadcast_date).split('-');
-                return Number(parts[2]) === day;
-              });
+        {/* 🚀 이중 스크롤바 요소를 제거하고 자연스럽게 높이가 늘어나도록 수정 */}
+        <div className="grid grid-cols-7 gap-[1px] bg-neutral-200 auto-rows-min">
+          
+          {/* 지난달 날짜 칸 */}
+          {prevMonthDates.map((day) => (
+            <div key={`prev-${day}`} className="bg-[#FAFAFA] p-2.5 flex flex-col min-h-[220px]">
+              <span className="font-bold text-[13px] text-neutral-400 mb-2">{day}일</span>
+            </div>
+          ))}
+          
+          {/* 이번달 날짜 칸 */}
+          {days.map((day) => {
+            const daySchedules = currentMonthSchedules.filter((item: any) => {
+              const parts = String(item.broadcast_date).split('-');
+              return Number(parts[2]) === day;
+            });
 
-              daySchedules.sort((a, b) => {
-                const timeA = a.start_time || '00:00';
-                const timeB = b.start_time || '00:00';
-                return timeA.localeCompare(timeB);
-              });
+            daySchedules.sort((a, b) => {
+              const timeA = a.start_time || '00:00';
+              const timeB = b.start_time || '00:00';
+              return timeA.localeCompare(timeB);
+            });
 
-              return (
-                <div key={`day-${day}`} className="bg-white p-2.5 flex flex-col transition hover:bg-neutral-50 min-w-0 min-h-[140px]">
-                  <div className="flex justify-between items-center mb-2 flex-shrink-0">
-                    <span className="font-bold text-[13px] text-neutral-800">{day}일</span>
-                    {daySchedules.length > 0 && (
-                      <span className="px-1.5 py-0.5 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
-                        {daySchedules.length}건
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex flex-col gap-1.5 flex-1 h-full">
-                    {daySchedules.map((schedule: any) => {
-                      const timeStr = schedule.start_time ? String(schedule.start_time).slice(0, 5) : '';
-                      const bgClass = getRowBgClass(schedule);
-                      
-                      return (
-                        <div 
-                          key={schedule.id} 
-                          onClick={() => setSelectedSchedule(schedule)}
-                          className={`flex flex-col p-1.5 rounded-md border text-[11px] leading-tight cursor-pointer hover:opacity-80 transition ${bgClass} border-black/5`}
-                          title={`${schedule.broadcast_title} (${schedule.pd_in_charge} PD)`}
-                        >
-                          <div className="flex justify-between items-center font-bold mb-1">
-                            <span>{timeStr}</span>
-                            <span className="truncate ml-1">{schedule.pd_in_charge ? `${schedule.pd_in_charge}PD` : ''}</span>
-                          </div>
-                          <div className="truncate text-black/70 font-medium whitespace-normal">
-                            {schedule.broadcast_title || '제목 없음'}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            return (
+              <div key={`day-${day}`} className="bg-white p-2.5 flex flex-col transition hover:bg-neutral-50 min-w-0 min-h-[220px]">
+                <div className="flex justify-between items-center mb-2 flex-shrink-0">
+                  <span className="font-bold text-[13px] text-neutral-800">{day}일</span>
+                  {daySchedules.length > 0 && (
+                    <span className="px-1.5 py-0.5 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
+                      {daySchedules.length}건
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-
-            {nextMonthDates.map((day) => (
-              <div key={`next-${day}`} className="bg-[#FAFAFA] p-2.5 flex flex-col min-h-[140px]">
-                <span className="font-bold text-[13px] text-neutral-400 mb-2">{day}일</span>
+                
+                <div className="flex flex-col gap-1.5 flex-1">
+                  {daySchedules.map((schedule: any) => {
+                    const timeStr = schedule.start_time ? String(schedule.start_time).slice(0, 5) : '';
+                    const bgClass = getRowBgClass(schedule);
+                    
+                    return (
+                      <div 
+                        key={schedule.id} 
+                        onClick={() => setSelectedSchedule(schedule)}
+                        className={`flex flex-col p-1.5 rounded-md border text-[11px] leading-tight cursor-pointer hover:opacity-80 transition ${bgClass} border-black/5`}
+                        title={`${schedule.broadcast_title} (${schedule.pd_in_charge} PD)`}
+                      >
+                        <div className="flex justify-between items-center font-bold mb-1">
+                          <span>{timeStr}</span>
+                          <span className="truncate ml-1">{schedule.pd_in_charge ? `${schedule.pd_in_charge}PD` : ''}</span>
+                        </div>
+                        <div className="truncate text-black/70 font-medium whitespace-normal">
+                          {schedule.broadcast_title || '제목 없음'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+
+          {/* 다음달 날짜 칸 */}
+          {nextMonthDates.map((day) => (
+            <div key={`next-${day}`} className="bg-[#FAFAFA] p-2.5 flex flex-col min-h-[220px]">
+              <span className="font-bold text-[13px] text-neutral-400 mb-2">{day}일</span>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* 방송 상세 모달 */}
       {selectedSchedule && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-neutral-100 animate-in fade-in zoom-in-95 duration-150 text-xs">

@@ -48,13 +48,13 @@ export default function DesignStatusSection({
 
   return (
     <div className="p-8 w-full h-full overflow-y-auto bg-white font-sans text-xs">
-      {/* 1. 통일된 타이틀 */}
-      <div className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h1 className="text-xl font-medium text-neutral-900">디자인 현황</h1>
+      {/* 1. 타이틀 영역 */}
+      <div className="flex justify-between items-center mb-5 h-9 flex-shrink-0">
+        <h1 className="text-xl font-medium text-neutral-900">디자인 작업 현황</h1>
       </div>
 
-      {/* 2. 통일된 공지사항 바 */}
-      <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 mb-6 flex justify-between items-center flex-shrink-0">
+      {/* 2. 공지사항 바 */}
+      <div className="w-full h-14 px-6 mb-6 bg-blue-50/60 border border-blue-100 rounded-xl flex justify-between items-center flex-shrink-0 select-none">
         <div className="flex items-center gap-3">
           <span className="text-blue-600 font-bold text-xs bg-blue-100 px-2.5 py-1 rounded">
             공지사항
@@ -67,6 +67,8 @@ export default function DesignStatusSection({
           공지사항 바로가기
         </button>
       </div>
+
+      
 
       {/* 3. 월 선택 버튼 바 */}
       <div className="flex items-center gap-2 mb-6 flex-shrink-0">
@@ -86,7 +88,7 @@ export default function DesignStatusSection({
       </div>
 
       {/* 4. Supabase DB 연동 디자인 현황 테이블 */}
-      <div className="border border-neutral-200 rounded-2xl overflow-hidden shadow-sm bg-white min-h-0">
+      <div className="border border-neutral-200 rounded-2xl overflow-hidden shadow-xs bg-white mb-36">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full border-collapse text-center">
             <thead className="sticky top-0 bg-neutral-50/95 backdrop-blur-sm z-10">

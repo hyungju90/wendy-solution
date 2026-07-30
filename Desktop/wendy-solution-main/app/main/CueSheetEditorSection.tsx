@@ -14,6 +14,8 @@ interface CueSheetEditorSectionProps {
 }
 
 export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEditorSectionProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
   const getCastNames = () => {
     if (!selectedSchedule) return '';
     const casts = [selectedSchedule.cast_1, selectedSchedule.cast_2, selectedSchedule.cast_3]
@@ -50,13 +52,91 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
   const [searchResults, setSearchResults] = useState<{ [key: number]: any[] }>({});
   const [activeDropdownIndex, setActiveDropdownIndex] = useState<number | null>(null);
 
-  // 🚀 핵심: 모델명(modelName)들이 변경될 때마다 DB를 조회하여 각 섹션의 데이터를 업데이트
+  // 🚀 1. 진입 시 Supabase DB에서 이 방송의 기존 저장된 큐시트 불러오기
+  useEffect(() => {
+    const fetchSavedCueSheet = async () => {
+      if (!selectedSchedule?.id) return;
+
+      const { data, error } = await supabase
+        .from('cue_sheets')
+        .select('*')
+        .eq('schedule_id', String(selectedSchedule.id))
+        .single();
+
+      if (data && !error) {
+        setFormData({
+          title: data.title || (selectedSchedule?.broadcast_title ? `${selectedSchedule.broadcast_title} 론칭 할인 + 최대 혜택` : ''),
+          promotion: data.promotion || '',
+          concept: data.concept || '',
+          target: data.target || '',
+          preparation: data.preparation || '',
+          rehearsal: data.rehearsal || '',
+          buyingPoint: data.buying_point || '',
+          techCam: data.tech_cam || '',
+          mainModel: data.main_model || '',
+          launchBenefit: data.launch_benefit || '',
+          liveBenefit: data.live_benefit || '',
+        });
+
+        if (data.sections && Array.isArray(data.sections) && data.sections.length > 0) {
+          setSections(data.sections);
+        }
+      }
+    };
+
+    fetchSavedCueSheet();
+  }, [selectedSchedule?.id]);
+
+  // 🚀 2. Supabase DB에 큐시트 저장 (Upsert)
+  const handleSaveCueSheet = async () => {
+    if (!selectedSchedule?.id) {
+      alert('방송 스케줄 정보가 없습니다.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        schedule_id: String(selectedSchedule.id),
+        title: formData.title,
+        promotion: formData.promotion,
+        concept: formData.concept,
+        target: formData.target,
+        preparation: formData.preparation,
+        rehearsal: formData.rehearsal,
+        buying_point: formData.buyingPoint,
+        tech_cam: formData.techCam,
+        main_model: formData.mainModel,
+        launch_benefit: formData.launchBenefit,
+        live_benefit: formData.liveBenefit,
+        sections: sections, // JSON 형태로 타임라인 전체 저장
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('cue_sheets')
+        .upsert(payload, { onConflict: 'schedule_id' });
+
+      if (error) {
+        console.error('큐시트 저장 실패:', error);
+        alert(`저장 실패: ${error.message}`);
+      } else {
+        alert('큐시트가 Supabase DB에 성공적으로 저장되었습니다!');
+      }
+    } catch (e: any) {
+      console.error('저장 에러:', e);
+      alert('큐시트 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 모델명(modelName) 변경 시 자동 검색
   useEffect(() => {
     const fetchAllProducts = async () => {
       for (let idx = 0; idx < sections.length; idx++) {
         const currentModel = sections[idx].modelName?.trim();
 
-        // 모델명이 비어있거나 2글자 미만이면 리셋
         if (!currentModel || currentModel.length < 2) {
           if (sections[idx].productName || sections[idx].detailRows.length > 0) {
             setSections((prev) => {
@@ -68,7 +148,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
           continue;
         }
 
-        // DB에서 ilike 조건으로 조회
         const { data } = await supabase
           .from('products')
           .select('*')
@@ -78,7 +157,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
         if (data && data.length > 0) {
           setSearchResults((prev) => ({ ...prev, [idx]: data }));
 
-          // 첫 번째 검색 결과를 해당 섹션에 주입
           const targetProd = data[0];
           let parsedRows: any[] = [];
 
@@ -94,7 +172,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
 
           setSections((prev) => {
             const updated = [...prev];
-            // 현재 섹션에 불려온 데이터가 다를 때만 업데이트하여 불필요한 재렌더링 방지
             if (
               updated[idx].productName !== (targetProd.product_name || '') ||
               updated[idx].detailRows.length !== parsedRows.length
@@ -122,7 +199,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
     return () => clearTimeout(timer);
   }, [sections.map((s) => s.modelName).join(',')]);
 
-  // 모델명 인풋 입력 처리
   const handleModelNameChange = (index: number, newModelName: string) => {
     setSections((prev) => {
       const updated = [...prev];
@@ -140,7 +216,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
     }
   };
 
-  // 드롭다운 옵션 클릭 시 특정 제품 매칭
   const handleSelectProduct = (index: number, selectedProduct: any) => {
     let parsedRows: any[] = [];
     if (Array.isArray(selectedProduct.detail_rows)) {
@@ -217,17 +292,26 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
 
   return (
     <div className="p-8 w-full h-full overflow-y-auto bg-white font-sans text-neutral-900 text-xs">
-      {/* 1. 상단 타이틀 */}
+      {/* 1. 상단 타이틀 및 저장 버튼 */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold text-neutral-900">큐시트 작성</h1>
-        {onBack && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={onBack}
-            className="px-4 py-2 border border-neutral-300 text-neutral-600 rounded-lg font-bold hover:bg-neutral-50 transition cursor-pointer"
+            onClick={handleSaveCueSheet}
+            disabled={isSaving}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
           >
-            목록으로 돌아가기
+            {isSaving ? '저장 중...' : '💾 저장하기'}
           </button>
-        )}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 border border-neutral-300 text-neutral-600 rounded-lg font-bold hover:bg-neutral-50 transition cursor-pointer"
+            >
+              목록으로 돌아가기
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. 상단 메인 방송 개요 표 */}
@@ -235,7 +319,7 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
         <div className="bg-[#FAFAFA] border-b border-neutral-200 py-2.5 px-4 text-center">
           <input
             type="text"
-            className="w-full text-center text-sm font-bold text-neutral-800 bg-transparent outline-none placeholder:text-neutral-400 font-sans"
+            className="w-full text-center text-sm font-bold text-red-600 bg-transparent outline-none placeholder:text-neutral-400 font-sans"
             placeholder="입력해주세요"
             value={formData.title}
             onChange={(e) => handleChange('title', e.target.value)}
@@ -397,13 +481,11 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
 
         <div className="divide-y divide-neutral-200">
           {sections.map((sec, idx) => {
-            // 대본 텍스트 추출
             const scriptTexts = (sec.detailRows || [])
               .map((row) => row.text || row.content || '')
               .filter((t) => t && String(t).trim() !== '')
               .join('\n\n');
 
-            // 이미지들 추출
             const detailImages = (sec.detailRows || [])
               .map((r) => r.image || r.imageUrl || r.img)
               .filter((img) => img && String(img).trim() !== '');
@@ -417,7 +499,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                   activeDropdownIndex === idx ? 'z-50' : 'z-10'
                 }`}
               >
-                {/* 구분 / 시간 / 모델명 영역 */}
                 <div className="p-4 flex flex-col items-center justify-center border-r border-neutral-200 bg-[#FAFAFA]/30 relative overflow-visible">
                   <button
                     onClick={() => handleRemoveSection(idx)}
@@ -427,7 +508,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                     ✕
                   </button>
 
-                  {/* 불러온 제품명 뱃지 */}
                   {sec.productName && (
                     <span className="mb-2 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 font-bold rounded text-[10px] text-center max-w-[130px] truncate shadow-2xs">
                       {sec.productName} {sec.color ? `(${sec.color})` : ''}
@@ -462,7 +542,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                         className="w-full text-center border border-neutral-200 rounded px-2 py-1 text-[11px] outline-none focus:border-blue-500 bg-white shadow-2xs font-mono font-medium text-neutral-700"
                       />
 
-                      {/* 드롭다운 추천 옵션 선택창 */}
                       {activeDropdownIndex === idx &&
                         searchResults[idx] &&
                         searchResults[idx].length > 1 && (
@@ -499,7 +578,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                   )}
                 </div>
 
-                {/* 구성 내용 (대본) */}
                 <div className="p-4 border-r border-neutral-200 flex flex-col justify-center items-center">
                   {scriptTexts ? (
                     <div className="w-full text-center text-neutral-800 whitespace-pre-wrap leading-relaxed font-medium text-[12px]">
@@ -510,7 +588,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                   )}
                 </div>
 
-                {/* 시연 및 혜택 */}
                 <div className="p-4 border-r border-neutral-200 flex items-center justify-center">
                   {(hasMainImage || detailImages.length > 0) ? (
                     <div className="flex flex-col gap-3 justify-center items-center w-full max-w-[280px] mx-auto py-2">
@@ -545,7 +622,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
                   )}
                 </div>
 
-                {/* VIDEO / AUDIO / 비고 */}
                 <div className="p-4 space-y-2 bg-neutral-50/30 flex flex-col justify-center">
                   <div>
                     <label className="text-[10px] text-neutral-500 font-semibold block mb-0.5">VIDEO</label>
@@ -581,7 +657,6 @@ export function CueSheetEditorSection({ onBack, selectedSchedule }: CueSheetEdit
           })}
         </div>
 
-        {/* 하단 내용 추가 버튼 */}
         <button
           onClick={handleAddSection}
           className="w-full py-3 bg-[#FAFAFA] text-neutral-600 border-t border-neutral-200 text-[12px] font-bold hover:bg-neutral-100 transition cursor-pointer flex items-center justify-center gap-1"

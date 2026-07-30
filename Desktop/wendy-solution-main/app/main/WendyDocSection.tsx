@@ -56,7 +56,7 @@ export default function WendyDocSection({
     imageUrl: ''
   });
 
-  // 🚀 [핵심 추가] '웬디 현황' 탭 클릭 등으로 isWritingMode가 false가 되면 활성 문서 초기화
+  // 🚀 '웬디 현황' 탭 클릭 등으로 isWritingMode가 false가 되면 활성 문서 초기화
   useEffect(() => {
     if (!isWritingMode) {
       setActiveScheduleDoc(null);
@@ -135,28 +135,33 @@ export default function WendyDocSection({
   };
 
   return (
-    <div className="w-full h-full bg-[#F5F6F8] overflow-y-auto select-text font-['Paperlogy']">
+    <div className="w-full h-full bg-[#F5F6F8] overflow-y-auto select-text font-['Paperlogy'] text-xs">
       
       {/* ------------------ VIEW 1: 카테고리별 공유 문서 목록 (현황 페이지) ------------------ */}
       {!isWritingMode && (
-        <div className="pt-[36px] px-[30px] pb-24 w-full flex flex-col items-stretch box-border bg-white min-h-full">
+        <div className="p-8 w-full h-full bg-white flex flex-col items-stretch box-border">
           
-          <div className="flex justify-between items-center mb-4 h-6 select-none flex-shrink-0">
-            <div className="text-black text-base font-medium flex items-center gap-2">
-              📄 웬디미디어 공유 문서
-            </div>
+          {/* 1. 표준 타이틀 영역 */}
+          <div className="flex justify-between items-center mb-5 h-9 flex-shrink-0">
+            <h1 className="text-xl font-medium text-neutral-900">웬디미디어 공유 문서</h1>
           </div>
 
-          <div className="w-full h-14 px-7 mb-8 bg-[#F2F5FF] rounded-[10px] border border-indigo-100 flex justify-between items-center select-none flex-shrink-0">
-            <div className="flex justify-start items-center gap-3.5">
-              <div className="text-blue-600 text-xs font-medium">공지사항</div>
-              <div className="text-neutral-700 text-xs font-medium">26년 2분기 쿠팡 선물 대잔치 공지</div>
+          {/* 2. 표준 공지사항 바 */}
+          <div className="w-full h-14 px-6 mb-6 bg-blue-50/60 border border-blue-100 rounded-xl flex justify-between items-center flex-shrink-0 select-none">
+            <div className="flex items-center gap-3">
+              <span className="text-blue-600 font-bold text-xs bg-blue-100 px-2.5 py-1 rounded">
+                공지사항
+              </span>
+              <span className="text-xs text-neutral-700 font-medium">
+                26년 2분기 쿠팡 선물 대잔치 공지
+              </span>
             </div>
-            <div className="px-3 py-1.5 bg-white rounded-md border border-neutral-200 flex justify-center items-center gap-2.5 cursor-pointer hover:bg-neutral-50 transition">
-              <div className="text-neutral-700 text-[10px] font-medium">공지사항 바로가기</div>
-            </div>
+            <button className="text-xs text-neutral-500 border border-neutral-200 bg-white px-3 py-1.5 rounded-lg hover:bg-neutral-50 cursor-pointer transition">
+              공지사항 바로가기
+            </button>
           </div>
 
+          {/* 3. 문서 카테고리 리스트 */}
           <div className="space-y-10 w-full">
             {CATEGORIES.map((cat) => {
               const catDocs = docs.filter(d => d.category === cat);

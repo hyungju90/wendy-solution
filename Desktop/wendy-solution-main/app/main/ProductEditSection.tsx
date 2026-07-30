@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://jrinzjtffkngxmkdoyjc.supabase.co';
@@ -8,6 +8,48 @@ const supabaseAnonKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaW56anRmZmtuZ3hta2RveWpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NDA5OTgsImV4cCI6MjA5OTExNjk5OH0.dkgztr_ZbKyP83JcJy7ieZ3MH4pnhDkVBeB_B6AqeT0';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const NAS_BASE_URL = 'https://vvendynas.synology.me/web_images/';
+
+// 🚀 텍스트 길이에 맞춰 높이가 자동으로 늘어나는 Textarea 컴포넌트
+const AutoResizeTextarea = ({
+  value,
+  onChange,
+  placeholder = '내용 입력',
+  className = '',
+  rows = 1,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+  rows?: number;
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={rows}
+      value={value || ''}
+      onChange={(e) => {
+        onChange(e.target.value);
+        adjustHeight();
+      }}
+      placeholder={placeholder}
+      className={`w-full bg-transparent outline-none resize-none overflow-hidden leading-[1.8] ${className}`}
+    />
+  );
+};
 
 interface ProductEditSectionProps {
   initialProduct?: any;
@@ -28,9 +70,16 @@ export function ProductEditSection({
 }: ProductEditSectionProps) {
   const currentInitial = initialProduct || initialData;
 
-  const [editProduct, setEditProduct] = useState(
-    currentInitial || { category: '', productName: '', modelName: '', color: '', imageUrl: '', isNew: true }
-  );
+  // 🚀 핵심: 초기 상태값 할당 시 color 필드를 정확하게 명시
+  const [editProduct, setEditProduct] = useState({
+    id: currentInitial?.id,
+    category: currentInitial?.category || '',
+    productName: currentInitial?.productName || currentInitial?.product_name || '',
+    modelName: currentInitial?.modelName || currentInitial?.model_name || '',
+    color: currentInitial?.color || '',
+    imageUrl: currentInitial?.imageUrl || currentInitial?.image_url || '',
+    isNew: currentInitial?.isNew || false,
+  });
 
   const getInitialDetailRows = () => {
     let rows = currentInitial?.detailRows || currentInitial?.detail_rows || [];
@@ -93,7 +142,7 @@ export function ProductEditSection({
       const currentModel = editProduct.modelName?.trim();
 
       if (!currentModel) return;
-      if (currentInitial?.modelName === currentModel && !currentInitial?.isNew) return;
+      if (currentInitial?.modelName === currentModel && !editProduct.isNew) return;
 
       const { data } = await supabase
         .from('products')
@@ -104,9 +153,9 @@ export function ProductEditSection({
       if (data) {
         setEditProduct((prev: any) => ({
           ...prev,
-          category: data.category || prev.category,
-          productName: data.product_name || prev.productName,
-          color: data.color || prev.color,
+          category: prev.category || data.category || '',
+          productName: prev.productName || data.product_name || '',
+          color: prev.color || data.color || '',
         }));
       }
     };
@@ -146,11 +195,11 @@ export function ProductEditSection({
     }
 
     const payload = {
-      category: editProduct.category,
+      category: editProduct.category || '',
       model_name: editProduct.modelName.trim(),
-      product_name: editProduct.productName,
-      color: editProduct.color,
-      image_url: editProduct.imageUrl,
+      product_name: editProduct.productName || '',
+      color: editProduct.color || '', // 🚀 DB 전송시 색상 전달
+      image_url: editProduct.imageUrl || '',
       detail_rows: detailRows,
     };
 
@@ -204,7 +253,7 @@ export function ProductEditSection({
     <div className="p-8 w-full h-full overflow-y-auto bg-white font-sans text-neutral-900">
       {/* 상단 타이틀 및 취소/저장 버튼 */}
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
-        <h1 className="text-xl font-bold text-neutral-900">제품 리스트</h1>
+        <h1 className="text-xl font-medium text-neutral-900">제품 리스트</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={handleGoBack}
@@ -232,7 +281,7 @@ export function ProductEditSection({
                 type="text" 
                 placeholder="예: RM70F90M1DD" 
                 className="w-full text-center text-[13px] font-semibold text-neutral-800 outline-none placeholder:text-neutral-300 bg-transparent" 
-                value={editProduct.modelName || editProduct.model_name || ''} 
+                value={editProduct.modelName || ''} 
                 onChange={(e) => handleProductInfoChange('modelName', e.target.value)} 
               />
             </div>
@@ -267,7 +316,7 @@ export function ProductEditSection({
                 type="text" 
                 placeholder="예: 비스포크 4도어 푸드쇼케이스" 
                 className="w-full text-center text-[13px] font-semibold text-neutral-800 outline-none placeholder:text-neutral-300 bg-transparent" 
-                value={editProduct.productName || editProduct.product_name || ''} 
+                value={editProduct.productName || ''} 
                 onChange={(e) => handleProductInfoChange('productName', e.target.value)} 
               />
             </div>
@@ -292,9 +341,9 @@ export function ProductEditSection({
         <div className="border border-neutral-200 bg-white rounded-lg overflow-hidden shadow-2xs flex flex-col h-full">
           <div className="bg-[#FAFAFA] border-b border-neutral-200 py-2.5 text-center text-[13px] font-bold text-neutral-700 flex-shrink-0">제품 이미지</div>
           <div className="flex-1 flex items-center justify-center p-6 bg-white min-h-0">
-            {editProduct.imageUrl || editProduct.image_url ? (
+            {editProduct.imageUrl ? (
               <img 
-                src={editProduct.imageUrl || editProduct.image_url} 
+                src={editProduct.imageUrl} 
                 alt="제품 이미지" 
                 className="max-h-full max-w-full object-contain" 
                 onError={(e: any) => { e.currentTarget.style.display = 'none'; }} 
@@ -328,18 +377,17 @@ export function ProductEditSection({
                 )}
               </div>
               
-              {/* 🚀 핵심 수정: flex flex-col items-center justify-center 및 my-auto 적용으로 텍스트 가로/세로 정중앙 정렬! */}
               <div className="p-6 flex flex-col items-center justify-center w-full h-full min-h-[180px]">
-                <textarea 
-                  className="w-full my-auto outline-none resize-none overflow-hidden text-[12px] text-neutral-800 leading-[1.8] text-center bg-transparent placeholder:text-neutral-400" 
-                  placeholder="내용 입력" 
+                <AutoResizeTextarea
                   value={row.text || ''}
-                  rows={3}
-                  onChange={(e) => {
+                  rows={2}
+                  placeholder="내용 입력"
+                  className="w-full my-auto text-[12px] text-neutral-800 text-center placeholder:text-neutral-400 whitespace-pre-wrap"
+                  onChange={(val) => {
                     const newRows = [...detailRows];
-                    if (newRows[idx]) { 
-                      newRows[idx].text = e.target.value; 
-                      setDetailRows(newRows); 
+                    if (newRows[idx]) {
+                      newRows[idx].text = val;
+                      setDetailRows(newRows);
                     }
                   }}
                 />
