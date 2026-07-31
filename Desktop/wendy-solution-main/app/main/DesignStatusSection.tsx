@@ -96,8 +96,8 @@ export default function DesignStatusSection({
                 <th className="px-3 border-r border-neutral-100 w-24">방송날짜</th>
                 <th className="px-3 border-r border-neutral-100 w-20">시작시간</th>
                 <th className="px-3 border-r border-neutral-100 w-24">플랫폼</th>
-                <th className="px-4 border-r border-neutral-100 text-left min-w-[200px]">품목</th>
-                <th className="px-3 border-r border-neutral-100 w-28 bg-blue-50/50 text-blue-900">
+                <th className="px-4 border-r border-neutral-100 text-center min-w-[200px]">품목</th>
+                <th className="px-3 border-r border-neutral-100 w-28 bg-blue-50/50">
                   CG-WIP
                 </th>
                 <th className="px-3 border-r border-neutral-100 w-24">배너</th>
@@ -138,12 +138,12 @@ export default function DesignStatusSection({
                         </div>
                       </td>
                       {/* 품목 (방송명) */}
-                      <td className="px-4 border-r border-neutral-100 text-left font-bold text-neutral-800 truncate max-w-[220px]">
+                      <td className="px-4 border-r border-neutral-100 text-center font-medium text-neutral-800 truncate max-w-[220px]">
                         {row.broadcast_title || '-'}
                       </td>
                       
                       {/* 🚀 [수정됨] PD 폴백(|| row.pd_in_charge)을 삭제하여 CG-WIP 데이터만 정확하게 출력 */}
-                      <td className="px-2 border-r border-neutral-100 bg-blue-50/20 font-bold text-blue-700">
+                      <td className="px-2 border-r border-neutral-100 bg-blue-50/20 font-medium text-blue-700">
                         {row.cg || '-'}
                       </td>
 

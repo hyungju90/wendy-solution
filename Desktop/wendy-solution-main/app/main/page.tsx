@@ -60,14 +60,14 @@ export default function MainChatPage() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const paramTab = urlParams.get('tab') as TabType;
-      const savedTab = localStorage.getItem('wendy_current_tab') as TabType;
-
+      
       const validTabs: TabType[] = ['chat', 'schedule', 'calendar', 'cgBoard', 'wendyStatus', 'cueSheet', 'cueSheetList', 'cueSheetEditor'];
       
-      if (paramTab && validTabs.includes(paramTab)) {
-        setCurrentTabState(paramTab);
-      } else if (savedTab && validTabs.includes(savedTab)) {
-        setCurrentTabState(savedTab);
+      if (paramTab && validTabs.includes(paramTab as TabType)) {
+        setCurrentTabState(paramTab as TabType);
+      } else {
+        // 저장된 탭이 없거나 기본 접근시 무조건 '편성표(schedule)'로 고정
+        setCurrentTabState('schedule');
       }
     }
   }, []);
@@ -173,6 +173,7 @@ export default function MainChatPage() {
 
   const baseTextClassName = "text-xs font-normal text-[#332211] tracking-normal text-center font-['Paperlogy']";
   
+  // 📌 [수정 포인트] 셀 렌더링 함수 - 날짜를 'X월 Y일' 형태로 다듬어 출력
   const renderEditableCell = (row: any, field: string, inputType: string = 'text') => {
     const isEditing = editingCell?.id === row?.id && editingCell?.field === field; 
     const value = row?.[field] ?? '';
@@ -197,8 +198,16 @@ export default function MainChatPage() {
     let displayValue = value;
     if (field === 'end_time' || field === 'start_time') {
       displayValue = String(value).slice(0,5);
-    } else if (field === 'broadcast_date' && typeof value === 'string') {
-      displayValue = value.substring(5); 
+    } else if (field === 'broadcast_date' && typeof value === 'string' && value) {
+      // 🚀 '2026-07-01' 또는 '07-01'을 '7월 1일' 형태로 다듬어줍니다.
+      const parts = value.split('-');
+      if (parts.length >= 2) {
+        const month = parseInt(parts[parts.length - 2], 10);
+        const day = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(month) && !isNaN(day)) {
+          displayValue = `${month}월 ${day}일`;
+        }
+      }
     }
 
     return (

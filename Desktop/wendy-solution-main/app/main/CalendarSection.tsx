@@ -80,7 +80,7 @@ export default function CalendarSection({
     <div className="p-8 pb-32 w-full h-full overflow-y-auto bg-white font-sans text-xs">
       {/* 1. 타이틀 영역 */}
       <div className="flex justify-between items-center mb-5 h-9 flex-shrink-0">
-        <h1 className="text-xl font-bold text-neutral-900">{selectedYear}년 {selectedMonth}월 방송 캘린더</h1>
+        <h1 className="text-xl font-medium text-neutral-900">{selectedYear}년 {selectedMonth}월 방송 캘린더</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenModal}
@@ -146,7 +146,7 @@ export default function CalendarSection({
           {/* 지난달 날짜 칸 */}
           {prevMonthDates.map((day) => (
             <div key={`prev-${day}`} className="bg-[#FAFAFA] p-2.5 flex flex-col min-h-[220px]">
-              <span className="font-bold text-[13px] text-neutral-400 mb-2">{day}일</span>
+              <span className="font-medium text-[13px] text-neutral-400 mb-2">{day}일</span>
             </div>
           ))}
           
@@ -166,7 +166,7 @@ export default function CalendarSection({
             return (
               <div key={`day-${day}`} className="bg-white p-2.5 flex flex-col transition hover:bg-neutral-50 min-w-0 min-h-[220px]">
                 <div className="flex justify-between items-center mb-2 flex-shrink-0">
-                  <span className="font-bold text-[13px] text-neutral-800">{day}일</span>
+                  <span className="font-medium text-[13px] text-neutral-800">{day}일</span>
                   {daySchedules.length > 0 && (
                     <span className="px-1.5 py-0.5 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
                       {daySchedules.length}건

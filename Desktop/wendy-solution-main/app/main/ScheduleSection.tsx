@@ -21,6 +21,28 @@ interface ScheduleSectionProps {
   handleOpenModal: () => void;
 }
 
+// 🚀 '07-01' 또는 '2026-07-01' 형식의 날짜를 '7월 1일' 형태로 다듬어주는 함수
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = String(dateStr).trim().split('-');
+
+  // '07-01' 형태일 경우
+  if (parts.length === 2) {
+    const month = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    if (!isNaN(month) && !isNaN(day)) return `${month}월 ${day}일`;
+  }
+
+  // '2026-07-01' 형태일 경우
+  if (parts.length === 3) {
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(month) && !isNaN(day)) return `${month}월 ${day}일`;
+  }
+
+  return dateStr;
+};
+
 export default function ScheduleSection({
   selectedMonth,
   setSelectedMonth,
@@ -44,7 +66,7 @@ export default function ScheduleSection({
       {/* 📌 상단 고정 영역 (스크롤 시에도 타이틀/공지는 사라지지 않음) */}
       <div className="pt-8 px-8 pb-5 flex-shrink-0">
         <div className="flex justify-between items-center mb-5 h-9">
-          <h1 className="text-xl font-bold text-neutral-900">웬디 스텝 스튜디오 편성</h1>
+          <h1 className="text-xl font-medium text-neutral-900">웬디 스텝 스튜디오 편성</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={exportToExcel}
@@ -151,7 +173,11 @@ export default function ScheduleSection({
                         isNewDate ? 'border-t-1 border-blue-400' : 'border-t border-neutral-200'
                       }`}
                     >
-                      <td className="px-2 border-r border-neutral-200">{renderEditableCell(row, 'broadcast_date', 'date')}</td>
+                      {/* 📌 날짜 컬럼: formatDate를 통해 '7월 1일'로 변환 출력 */}
+                      {/* ⭕ 기존처럼 row를 그대로 전달해 줍니다 */}
+                      <td className="px-2 border-r border-neutral-200">
+                        {renderEditableCell(row, 'broadcast_date', 'date')}
+                      </td>
                       <td className="px-2 border-r border-neutral-200 font-mono">{renderEditableCell(row, 'start_time', 'time')}</td>
                       <td className="px-2 border-r border-neutral-200 font-mono">{renderEditableCell(row, 'end_time', 'time')}</td>
                       <td className="px-2 border-r border-neutral-200 font-mono">{renderEditableCell(row, 'duration_minutes', 'number')}</td>
