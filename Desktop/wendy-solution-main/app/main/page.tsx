@@ -102,12 +102,16 @@ export default function MainChatPage() {
   const [formData, setFormData] = useState(initialFormData);
 
   // 🚀 Supabase 스케줄 조회
+  // 🚀 Supabase 스케줄 조회
+  // 🚀 Supabase 스케줄 조회 (정렬 기준 3단계 락 적용)
   const fetchSchedules = async () => {
     try {
       const { data, error } = await supabase
         .from('broadcast_schedules')
         .select('*')
-        .order('broadcast_date', { ascending: true });
+        .order('broadcast_date', { ascending: true }) // 1순위: 날짜 순
+        .order('start_time', { ascending: true })     // 2순위: 시작 시간 순
+        .order('id', { ascending: true });            // 3순위: 그래도 똑같으면 고유 ID(생성순)로 고정!
 
       if (!error && data) {
         setSchedules(data);
